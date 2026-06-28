@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gothic Remake Lock Solver</title>
+  <style>
+    :root {
+      --stone-deep: #0c0a08;
+      --stone: #151210;
+      --stone-mid: #1e1914;
+      --stone-light: #2a231c;
+      --iron: #3d3830;
+      --iron-light: #5c5348;
+      --brass: #b8922a;
+      --brass-bright: #d4af37;
+      --brass-dim: #6b5520;
+      --parchment: #c9b896;
+      --parchment-dim: #8a7a5c;
+      --ink: #e8dcc8;
+      --ink-muted: #9a8b72;
+      --blood: #8b1a1a;
+      --blood-glow: #c42b2b;
+      --emerald: #2d5a3d;
+      --emerald-glow: #3d7a52;
+      --success: #6b9e6e;
+      --error: #a84432;
+      --shadow: rgba(0, 0, 0, 0.65);
+      --font-display: Georgia, "Times New Roman", "Palatino Linotype", serif;
+      --font-body: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--stone-deep);
+      color: var(--ink);
+      line-height: 1.55;
+      min-height: 100vh;
+      position: relative;
+    }
+
+    /* Stone texture + vignette */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(184, 146, 42, 0.06) 0%, transparent 55%),
+        radial-gradient(ellipse 100% 100% at 50% 100%, rgba(0, 0, 0, 0.75) 0%, transparent 50%),
+        repeating-linear-gradient(
+          90deg,
+          transparent 0px,
+          transparent 3px,
+          rgba(255, 255, 255, 0.008) 3px,
+          rgba(255, 255, 255, 0.008) 4px
+        ),
+        repeating-linear-gradient(
+          0deg,
+          transparent 0px,
+          transparent 7px,
+          rgba(0, 0, 0, 0.04) 7px,
+          rgba(0, 0, 0, 0.04) 8px
+        ),
+        linear-gradient(175deg, #12100d 0%, #0a0907 40%, #100e0b 100%);
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.35;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+      background-size: 180px 180px;
+    }
+
+    /* Top ornament — gothic arch */
+    .gothic-arch {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(420px, 90vw);
+      height: 48px;
+      pointer-events: none;
+      opacity: 0.25;
+    }
+
+    header,
+    main {
+      position: relative;
+      z-index: 1;
+    }
+
+    header {
+      text-align: center;
+      padding: 2.5rem 1.5rem 2rem;
+      border-bottom: 2px solid var(--iron);
+      background:
+        linear-gradient(180deg, rgba(42, 35, 28, 0.9) 0%, rgba(12, 10, 8, 0.95) 100%);
+      box-shadow: 0 4px 24px var(--shadow);
+    }
+
+    header::after {
+      content: "◆ ◆ ◆";
+      display: block;
+      margin-top: 1rem;
+      letter-spacing: 0.6em;
+      font-size: 0.45rem;
+      color: var(--brass-dim);
+    }
+
+    header h1 {
+      font-family: var(--font-display);
+      font-size: clamp(1.4rem, 4vw, 2rem);
+      font-weight: 700;
+      font-variant: small-caps;
+      letter-spacing: 0.12em;
+      color: var(--brass-bright);
+      text-shadow:
+        0 1px 0 rgba(0, 0, 0, 0.8),
+        0 0 30px rgba(212, 175, 55, 0.25);
+    }
+
+    header p {
+      font-family: var(--font-display);
+      font-style: italic;
+      color: var(--ink-muted);
+      font-size: 0.95rem;
+      margin-top: 0.5rem;
+      max-width: 36rem;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    main {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 4rem;
+    }
+
+    /* Panel — stone tablet with brass frame */
+    section,
+    #results {
+      background:
+        linear-gradient(145deg, var(--stone-mid) 0%, var(--stone) 50%, #12100d 100%);
+      border: 1px solid var(--iron);
+      outline: 1px solid rgba(184, 146, 42, 0.15);
+      outline-offset: 3px;
+      padding: 1.5rem 1.75rem;
+      margin-bottom: 1.5rem;
+      position: relative;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.04),
+        inset 0 -8px 24px rgba(0, 0, 0, 0.35),
+        0 8px 32px var(--shadow);
+    }
+
+    section::before,
+    section::after,
+    #results::before,
+    #results::after {
+      content: "";
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border-color: var(--brass-dim);
+      border-style: solid;
+      opacity: 0.7;
+    }
+
+    section::before,
+    #results::before {
+      top: 6px; left: 6px;
+      border-width: 2px 0 0 2px;
+    }
+
+    section::after,
+    #results::after {
+      bottom: 6px; right: 6px;
+      border-width: 0 2px 2px 0;
+    }
+
+    section h2 {
+      font-family: var(--font-display);
+      font-size: 0.8rem;
+      font-weight: 700;
+      font-variant: small-caps;
+      letter-spacing: 0.18em;
+      color: var(--brass);
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.6rem;
+      border-bottom: 1px solid var(--iron);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    section h2::before,
+    section h2::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--brass-dim), transparent);
+    }
+
+    .hint {
+      color: var(--ink-muted);
+      font-family: var(--font-display);
+      font-style: italic;
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+      padding-left: 0.75rem;
+      border-left: 2px solid var(--brass-dim);
+    }
+
+    label {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      font-family: var(--font-display);
+      font-size: 0.95rem;
+      color: var(--parchment);
+    }
+
+    select {
+      appearance: none;
+      background:
+        linear-gradient(180deg, var(--stone-light) 0%, var(--stone-mid) 100%);
+      color: var(--ink);
+      border: 1px solid var(--iron-light);
+      padding: 0.45rem 2rem 0.45rem 0.75rem;
+      font-family: var(--font-display);
+      font-size: 0.9rem;
+      cursor: pointer;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+      background-image:
+        linear-gradient(180deg, var(--stone-light) 0%, var(--stone-mid) 100%),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23b8922a' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+      background-repeat: no-repeat, no-repeat;
+      background-position: center, right 0.6rem center;
+    }
+
+    select:hover {
+      border-color: var(--brass-dim);
+    }
+
+    select:focus {
+      outline: 1px solid var(--brass);
+      outline-offset: 2px;
+    }
+
+    select option {
+      background: var(--stone-mid);
+      color: var(--ink);
+    }
+
+    /* Plates — lock mechanism */
+    .plates-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .plate-row {
+      display: grid;
+      grid-template-columns: 5.5rem 1fr;
+      align-items: center;
+      gap: 0.75rem 1rem;
+    }
+
+    @media (max-width: 520px) {
+      .plate-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .plate-label {
+      font-family: var(--font-display);
+      font-variant: small-caps;
+      font-weight: 700;
+      font-size: 0.85rem;
+      letter-spacing: 0.06em;
+      color: var(--brass);
+      text-align: right;
+    }
+
+    .plate-rail {
+      display: flex;
+      align-items: center;
+      padding: 0.65rem 0.85rem;
+      background:
+        linear-gradient(180deg, #2a2218 0%, #1a1510 45%, #0f0d0a 100%);
+      border: 1px solid var(--iron);
+      box-shadow:
+        inset 0 3px 8px rgba(0, 0, 0, 0.6),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+        0 2px 6px rgba(0, 0, 0, 0.4);
+      position: relative;
+    }
+
+    .plate-rail::before,
+    .plate-rail::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, var(--iron-light), #1a1510);
+      border: 1px solid var(--iron);
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
+    }
+
+    .plate-rail::before { left: 6px; }
+    .plate-rail::after { right: 6px; }
+
+    .plate-track {
+      display: flex;
+      gap: 0.5rem;
+      align-items: flex-start;
+      justify-content: center;
+      flex: 1;
+      padding: 0 0.5rem 1.1rem;
+    }
+
+    .hole {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 2px solid var(--iron-light);
+      background:
+        radial-gradient(circle at 40% 35%, #3a3530 0%, #1a1714 70%, #0a0908 100%);
+      cursor: pointer;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+      position: relative;
+      box-shadow:
+        inset 0 2px 5px rgba(0, 0, 0, 0.7),
+        0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    .hole::after {
+      content: "";
+      position: absolute;
+      inset: 5px;
+      border-radius: 50%;
+      border: 1px solid rgba(0, 0, 0, 0.5);
+      pointer-events: none;
+    }
+
+    .hole:hover {
+      border-color: var(--brass-dim);
+      transform: translateY(-2px);
+      box-shadow:
+        inset 0 2px 5px rgba(0, 0, 0, 0.7),
+        0 4px 8px rgba(0, 0, 0, 0.5);
+    }
+
+    .hole.target {
+      border-color: var(--emerald-glow);
+      background:
+        radial-gradient(circle at 40% 35%, rgba(61, 122, 82, 0.35) 0%, #1a1714 70%, #0a0908 100%);
+    }
+
+    .hole.target::before {
+      content: "";
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      border: 1px dashed rgba(61, 122, 82, 0.45);
+      pointer-events: none;
+    }
+
+    .hole.active {
+      background:
+        radial-gradient(circle at 35% 30%, #e05050 0%, var(--blood) 40%, #4a0a0a 100%);
+      border-color: var(--blood-glow);
+      box-shadow:
+        inset 0 -2px 4px rgba(0, 0, 0, 0.5),
+        inset 0 2px 4px rgba(255, 120, 80, 0.3),
+        0 0 12px rgba(196, 43, 43, 0.55),
+        0 0 24px rgba(139, 26, 26, 0.25);
+    }
+
+    .hole.target.active {
+      border-color: var(--emerald-glow);
+      box-shadow:
+        inset 0 -2px 4px rgba(0, 0, 0, 0.5),
+        inset 0 2px 4px rgba(255, 120, 80, 0.3),
+        0 0 14px rgba(196, 43, 43, 0.5),
+        0 0 8px rgba(61, 122, 82, 0.4);
+    }
+
+    .hole-num {
+      position: absolute;
+      bottom: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: var(--font-display);
+      font-size: 0.6rem;
+      font-variant: small-caps;
+      color: var(--ink-muted);
+      letter-spacing: 0.02em;
+    }
+
+    .hole.target .hole-num {
+      color: var(--emerald-glow);
+      font-weight: 700;
+    }
+
+    /* Connection matrix */
+    .matrix-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--iron);
+      box-shadow: inset 0 4px 16px rgba(0, 0, 0, 0.35);
+    }
+
+    table.connections {
+      border-collapse: collapse;
+      font-size: 0.82rem;
+      width: 100%;
+      font-family: var(--font-display);
+    }
+
+    table.connections th,
+    table.connections td {
+      border: 1px solid var(--iron);
+      padding: 0.4rem 0.45rem;
+      text-align: center;
+    }
+
+    table.connections thead th {
+      background: linear-gradient(180deg, #2a231c 0%, #1a1510 100%);
+      color: var(--brass);
+      font-variant: small-caps;
+      letter-spacing: 0.08em;
+      font-size: 0.75rem;
+    }
+
+    table.connections tbody th {
+      background: linear-gradient(90deg, #1a1510 0%, #151210 100%);
+      color: var(--parchment-dim);
+      font-weight: 600;
+    }
+
+    table.connections tbody tr:nth-child(even) td:not(.diagonal) {
+      background: rgba(0, 0, 0, 0.15);
+    }
+
+    table.connections td.diagonal {
+      background: var(--stone-deep);
+      color: var(--iron-light);
+      font-size: 1rem;
+    }
+
+    table.connections select {
+      min-width: 5.5rem;
+      padding: 0.3rem 1.75rem 0.3rem 0.5rem;
+      font-size: 0.78rem;
+    }
+
+    /* Solve button — brass plaque */
+    .actions {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .btn-solve {
+      font-family: var(--font-display);
+      font-variant: small-caps;
+      font-weight: 700;
+      font-size: 1.05rem;
+      letter-spacing: 0.2em;
+      padding: 0.85rem 2.75rem;
+      cursor: pointer;
+      border: none;
+      color: #1a1208;
+      background:
+        linear-gradient(180deg, #e8c547 0%, #b8922a 35%, #8a6b18 100%);
+      border: 1px solid #6b5520;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        inset 0 -3px 6px rgba(0, 0, 0, 0.25),
+        0 4px 16px rgba(0, 0, 0, 0.5),
+        0 0 20px rgba(184, 146, 42, 0.15);
+      transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
+    }
+
+    .btn-solve:hover:not(:disabled) {
+      filter: brightness(1.08);
+      transform: translateY(-2px);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.4),
+        inset 0 -3px 6px rgba(0, 0, 0, 0.25),
+        0 6px 20px rgba(0, 0, 0, 0.55),
+        0 0 28px rgba(184, 146, 42, 0.3);
+    }
+
+    .btn-solve:active:not(:disabled) {
+      transform: translateY(1px);
+      box-shadow:
+        inset 0 2px 6px rgba(0, 0, 0, 0.35),
+        0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+
+    .btn-solve:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      filter: grayscale(0.4);
+    }
+
+    /* Results — scroll */
+    #results {
+      display: none;
+    }
+
+    #results.visible { display: block; }
+
+    #results.success {
+      border-color: rgba(107, 158, 110, 0.4);
+      outline-color: rgba(107, 158, 110, 0.2);
+    }
+
+    #results.error {
+      border-color: rgba(168, 68, 50, 0.5);
+      outline-color: rgba(168, 68, 50, 0.25);
+    }
+
+    .result-title {
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      font-variant: small-caps;
+      letter-spacing: 0.1em;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .result-title.success {
+      color: var(--success);
+      text-shadow: 0 0 20px rgba(107, 158, 110, 0.3);
+    }
+
+    .result-title.error {
+      color: var(--error);
+      text-shadow: 0 0 20px rgba(168, 68, 50, 0.3);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 0.6rem 1rem;
+      margin-bottom: 1rem;
+      font-size: 0.88rem;
+    }
+
+    .stat-block {
+      padding: 0.5rem 0.75rem;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--iron);
+      border-left: 2px solid var(--brass-dim);
+    }
+
+    .stat-label {
+      display: block;
+      font-family: var(--font-display);
+      font-variant: small-caps;
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      color: var(--ink-muted);
+      margin-bottom: 0.15rem;
+    }
+
+    .stat-value {
+      font-family: var(--font-display);
+      font-weight: 700;
+      color: var(--parchment);
+      font-size: 1rem;
+    }
+
+    .moves-scroll {
+      max-height: 340px;
+      overflow-y: auto;
+      border: 1px solid var(--iron);
+      background:
+        linear-gradient(180deg, rgba(201, 184, 150, 0.06) 0%, rgba(0, 0, 0, 0.2) 100%);
+      padding: 0.75rem 1rem;
+      margin-bottom: 1rem;
+      scrollbar-width: thin;
+      scrollbar-color: var(--brass-dim) var(--stone-mid);
+    }
+
+    .moves-scroll::-webkit-scrollbar { width: 8px; }
+    .moves-scroll::-webkit-scrollbar-track { background: var(--stone-mid); }
+    .moves-scroll::-webkit-scrollbar-thumb {
+      background: var(--brass-dim);
+      border: 1px solid var(--iron);
+    }
+
+    .moves-list {
+      list-style: none;
+      counter-reset: move;
+    }
+
+    .moves-list li {
+      counter-increment: move;
+      padding: 0.35rem 0;
+      font-family: var(--font-display);
+      font-size: 0.88rem;
+      color: var(--ink);
+      border-bottom: 1px dotted rgba(154, 139, 114, 0.2);
+    }
+
+    .moves-list li:last-child { border-bottom: none; }
+
+    .moves-list li::before {
+      content: counter(move) ". ";
+      color: var(--brass);
+      font-weight: 700;
+    }
+
+    .stats-footer {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--iron);
+    }
+
+    .validation-error {
+      color: var(--error);
+      font-family: var(--font-display);
+      font-style: italic;
+      font-size: 0.9rem;
+      margin-top: 0.5rem;
+      text-align: center;
+    }
+
+    .result-msg {
+      font-family: var(--font-display);
+      font-style: italic;
+      color: var(--ink-muted);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <svg class="gothic-arch" viewBox="0 0 420 48" aria-hidden="true">
+      <path d="M0 48 L0 20 Q210 -20 420 20 L420 48" fill="none" stroke="#b8922a" stroke-width="1"/>
+      <path d="M30 48 L30 28 Q210 4 390 28 L390 48" fill="none" stroke="#6b5520" stroke-width="0.5" opacity="0.6"/>
+    </svg>
+    <h1>Gothic Remake Lock Solver</h1>
+    <p>Recreate any lock and find the shortest sequence of moves to open it</p>
+  </header>
+
+  <main>
+    <section id="section-count">
+      <h2>1. Number of plates</h2>
+      <label>
+        Plates:
+        <select id="plate-count">
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+        </select>
+      </label>
+    </section>
+
+    <section id="section-positions">
+      <h2>2. Plate positions</h2>
+      <div id="plates-container" class="plates-grid"></div>
+    </section>
+
+    <section id="section-connections">
+      <h2>3. Connection matrix</h2>
+      <p class="hint">
+        Row = plate being turned. Column = effect on another plate. Connections are directional.
+      </p>
+      <div id="connections-container" class="matrix-wrap"></div>
+    </section>
+
+    <div class="actions">
+      <button id="btn-solve" class="btn-solve" type="button">Solve</button>
+    </div>
+
+    <div id="results"></div>
+  </main>
+
+  <script>
+    // ─── Application state ────────────────────────────────────────────────────
+
+    const MIN_PLATES = 4;
+    const MAX_PLATES = 7;
+    const MIN_POS = 1;
+    const MAX_POS = 7;
+    const TARGET_POS = 4;
+
+    /** @type {number} */
+    let plateCount = 4;
+    /** @type {number[]} plate positions (index 0 = Plate 1) */
+    let positions = [];
+    /** @type {string[][]} connection matrix: 'none' | 'with' | 'against' */
+    let connections = [];
+
+    // ─── Validation ───────────────────────────────────────────────────────────
+
+    /**
+     * Validates the plate count.
+     * @param {number} n
+     * @returns {string|null} error message or null
+     */
+    function validatePlateCount(n) {
+      if (!Number.isInteger(n) || n < MIN_PLATES || n > MAX_PLATES) {
+        return `Plate count must be an integer between ${MIN_PLATES} and ${MAX_PLATES}.`;
+      }
+      return null;
+    }
+
+    /**
+     * Validates all plate positions.
+     * @param {number[]} pos
+     * @returns {string|null}
+     */
+    function validatePositions(pos) {
+      if (!Array.isArray(pos) || pos.length === 0) {
+        return 'No plate positions defined.';
+      }
+      for (let i = 0; i < pos.length; i++) {
+        const p = pos[i];
+        if (!Number.isInteger(p) || p < MIN_POS || p > MAX_POS) {
+          return `Plate ${i + 1}: position must be an integer between ${MIN_POS} and ${MAX_POS}.`;
+        }
+      }
+      return null;
+    }
+
+    /**
+     * Validates the connection matrix.
+     * @param {string[][]} conn
+     * @param {number} n
+     * @returns {string|null}
+     */
+    function validateConnections(conn, n) {
+      if (!Array.isArray(conn) || conn.length !== n) {
+        return 'Connection matrix has an invalid size.';
+      }
+      const allowed = new Set(['none', 'with', 'against']);
+      for (let i = 0; i < n; i++) {
+        if (!Array.isArray(conn[i]) || conn[i].length !== n) {
+          return `Row ${i + 1} of the connection matrix has an invalid size.`;
+        }
+        for (let j = 0; j < n; j++) {
+          if (i === j) continue;
+          if (!allowed.has(conn[i][j])) {
+            return `Connection P${i + 1}→P${j + 1}: allowed values are None, With, Against.`;
+          }
+        }
+      }
+      return null;
+    }
+
+    // ─── Lock logic ───────────────────────────────────────────────────────────
+
+    /**
+     * Returns the current state (all plate positions).
+     * @returns {number[]}
+     */
+    function getCurrentState() {
+      return positions.slice();
+    }
+
+    /**
+     * Encodes state as a string (key for the visited map).
+     * @param {number[]} state
+     * @returns {string}
+     */
+    function encodeState(state) {
+      return state.join(',');
+    }
+
+    /**
+     * Attempts a move on the given plate.
+     * Returns the new state or null if the move is invalid.
+     * @param {number[]} state
+     * @param {number} plateIndex plate index (0-based)
+     * @param {number} direction -1 = Left, +1 = Right
+     * @param {string[][]} conn
+     * @returns {number[]|null}
+     */
+    function tryMove(state, plateIndex, direction, conn) {
+      if (!Array.isArray(state) || !Array.isArray(conn)) return null;
+      const n = state.length;
+      if (n === 0 || conn.length !== n) return null;
+      if (!Number.isInteger(plateIndex) || plateIndex < 0 || plateIndex >= n) return null;
+      if (direction !== -1 && direction !== 1) return null;
+
+      const deltas = new Array(n).fill(0);
+      deltas[plateIndex] = direction;
+
+      // Direct connections from the turned plate
+      for (let j = 0; j < n; j++) {
+        if (j === plateIndex) continue;
+        const link = conn[plateIndex][j];
+        if (link === 'with') {
+          deltas[j] = direction;
+        } else if (link === 'against') {
+          deltas[j] = -direction;
+        }
+      }
+
+      // Validation: no plate may leave the 1–7 range
+      const next = new Array(n);
+      for (let i = 0; i < n; i++) {
+        next[i] = state[i] + deltas[i];
+        if (next[i] < MIN_POS || next[i] > MAX_POS) {
+          return null; // entire move cancelled
+        }
+      }
+      return next;
+    }
+
+    /**
+     * Checks whether all plates are at the target position.
+     * @param {number[]} state
+     * @returns {boolean}
+     */
+    function isSolved(state) {
+      return state.every(p => p === TARGET_POS);
+    }
+
+    /**
+     * BFS — finds the shortest move sequence.
+     * @param {number[]} initialState
+     * @param {string[][]} conn
+     * @returns {{ moves: Array<{plate: number, direction: string}>, visited: number, maxQueue: number, elapsedMs: number } | null}
+     */
+    function solveBFS(initialState, conn) {
+      const startTime = performance.now();
+      if (!Array.isArray(initialState) || !Array.isArray(conn)) return null;
+      const n = initialState.length;
+      if (n === 0 || conn.length !== n) return null;
+      if (validatePositions(initialState) || validateConnections(conn, n)) return null;
+
+      const startKey = encodeState(initialState);
+
+      if (isSolved(initialState)) {
+        return { moves: [], visited: 1, maxQueue: 1, elapsedMs: 0 };
+      }
+
+      /** @type {Map<string, { state: number[], parent: string|null, move: {plate: number, direction: string}|null }>} */
+      const visited = new Map();
+      visited.set(startKey, { state: initialState, parent: null, move: null });
+
+      /** @type {string[]} queue of state keys */
+      const queue = [startKey];
+      let maxQueue = 1;
+      let head = 0;
+
+      while (head < queue.length) {
+        const key = queue[head++];
+        const { state } = visited.get(key);
+
+        for (let plate = 0; plate < n; plate++) {
+          for (const [dirVal, dirName] of [[-1, 'Left'], [1, 'Right']]) {
+            const nextState = tryMove(state, plate, dirVal, conn);
+            if (!nextState) continue;
+
+            const nextKey = encodeState(nextState);
+            if (visited.has(nextKey)) continue;
+
+            visited.set(nextKey, {
+              state: nextState,
+              parent: key,
+              move: { plate: plate + 1, direction: dirName },
+            });
+            queue.push(nextKey);
+            maxQueue = Math.max(maxQueue, queue.length - head);
+
+            if (isSolved(nextState)) {
+              // Reconstruct path
+              const moves = [];
+              let cur = nextKey;
+              while (visited.get(cur).move) {
+                moves.unshift(visited.get(cur).move);
+                cur = visited.get(cur).parent;
+              }
+              return {
+                moves,
+                visited: visited.size,
+                maxQueue,
+                elapsedMs: performance.now() - startTime,
+              };
+            }
+          }
+        }
+      }
+
+      return null; // no solution
+    }
+
+    /**
+     * Merges consecutive identical moves (Plate X - Direction ×N).
+     * @param {Array<{plate: number, direction: string}>} moves
+     * @returns {Array<{plate: number, direction: string, count: number}>}
+     */
+    function compressMoves(moves) {
+      if (moves.length === 0) return [];
+
+      /** @type {Array<{plate: number, direction: string, count: number}>} */
+      const compressed = [];
+      let cur = { ...moves[0], count: 1 };
+
+      for (let i = 1; i < moves.length; i++) {
+        const m = moves[i];
+        if (m.plate === cur.plate && m.direction === cur.direction) {
+          cur.count++;
+        } else {
+          compressed.push(cur);
+          cur = { ...m, count: 1 };
+        }
+      }
+      compressed.push(cur);
+      return compressed;
+    }
+
+    // ─── UI: form building ────────────────────────────────────────────────────
+
+    /**
+     * Initializes / rebuilds state and UI when plate count changes.
+     */
+    function createBoard() {
+      const err = validatePlateCount(plateCount);
+      if (err) {
+        console.error(err);
+        return;
+      }
+
+      // Default starting positions (varied for easier testing)
+      positions = Array.from({ length: plateCount }, (_, i) => ((i % MAX_POS) + 1));
+
+      createConnections();
+      renderPlates();
+      renderConnectionsMatrix();
+      hideResults();
+    }
+
+    /**
+     * Creates the default connection matrix (all None).
+     */
+    function createConnections() {
+      connections = Array.from({ length: plateCount }, () =>
+        Array.from({ length: plateCount }, () => 'none')
+      );
+    }
+
+    /**
+     * Renders the graphical plate representation.
+     */
+    function renderPlates() {
+      const container = document.getElementById('plates-container');
+      container.innerHTML = '';
+
+      for (let i = 0; i < plateCount; i++) {
+        const row = document.createElement('div');
+        row.className = 'plate-row';
+
+        const label = document.createElement('span');
+        label.className = 'plate-label';
+        label.textContent = `Plate ${i + 1}`;
+        row.appendChild(label);
+
+        const rail = document.createElement('div');
+        rail.className = 'plate-rail';
+
+        const track = document.createElement('div');
+        track.className = 'plate-track';
+
+        for (let pos = MIN_POS; pos <= MAX_POS; pos++) {
+          const hole = document.createElement('button');
+          hole.type = 'button';
+          hole.className = 'hole';
+          hole.setAttribute('aria-label', `Plate ${i + 1}, position ${pos}`);
+          if (pos === TARGET_POS) hole.classList.add('target');
+          if (pos === positions[i]) hole.classList.add('active');
+
+          const num = document.createElement('span');
+          num.className = 'hole-num';
+          num.textContent = pos;
+          hole.appendChild(num);
+
+          const plateIdx = i;
+          const position = pos;
+          hole.addEventListener('click', () => {
+            positions[plateIdx] = position;
+            renderPlates();
+          });
+
+          track.appendChild(hole);
+        }
+
+        rail.appendChild(track);
+        row.appendChild(rail);
+        container.appendChild(row);
+      }
+    }
+
+    /**
+     * Renders the connection matrix table.
+     */
+    function renderConnectionsMatrix() {
+      const container = document.getElementById('connections-container');
+      const table = document.createElement('table');
+      table.className = 'connections';
+
+      // Header
+      const thead = document.createElement('thead');
+      const headerRow = document.createElement('tr');
+      const corner = document.createElement('th');
+      corner.textContent = 'Turning';
+      headerRow.appendChild(corner);
+
+      for (let j = 0; j < plateCount; j++) {
+        const th = document.createElement('th');
+        th.textContent = `P${j + 1}`;
+        headerRow.appendChild(th);
+      }
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+
+      // Rows
+      const tbody = document.createElement('tbody');
+      for (let i = 0; i < plateCount; i++) {
+        const tr = document.createElement('tr');
+
+        const rowLabel = document.createElement('th');
+        rowLabel.textContent = `P${i + 1}`;
+        tr.appendChild(rowLabel);
+
+        for (let j = 0; j < plateCount; j++) {
+          const td = document.createElement('td');
+          if (i === j) {
+            td.className = 'diagonal';
+            td.textContent = '—';
+          } else {
+            const sel = document.createElement('select');
+            sel.innerHTML = `
+              <option value="none">None</option>
+              <option value="with">With</option>
+              <option value="against">Against</option>
+            `;
+            sel.value = connections[i][j];
+            const row = i;
+            const col = j;
+            sel.addEventListener('change', () => {
+              connections[row][col] = sel.value;
+            });
+            td.appendChild(sel);
+          }
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      }
+      table.appendChild(tbody);
+
+      container.innerHTML = '';
+      container.appendChild(table);
+    }
+
+    /**
+     * Hides the results panel.
+     */
+    function hideResults() {
+      const el = document.getElementById('results');
+      el.className = '';
+      el.innerHTML = '';
+    }
+
+    /**
+     * Displays the solver result.
+     * @param {{ moves: Array<{plate: number, direction: string}>, visited: number, maxQueue: number, elapsedMs: number } | null} result
+     */
+    function renderSolution(result) {
+      const el = document.getElementById('results');
+      el.className = 'visible';
+
+      if (!result) {
+        el.classList.add('error');
+        el.innerHTML = `
+          <div class="result-title error">No solution found</div>
+          <p class="result-msg">The lock could not be opened with the given settings.</p>
+        `;
+        return;
+      }
+
+      const compressed = compressMoves(result.moves);
+      const solutionLength = result.moves.length;
+
+      el.classList.add('success');
+      el.innerHTML = `
+        <div class="result-title success">Solution found</div>
+        <div class="stats">
+          <div class="stat-block">
+            <span class="stat-label">Visited states</span>
+            <span class="stat-value">${result.visited}</span>
+          </div>
+          <div class="stat-block">
+            <span class="stat-label">Moves</span>
+            <span class="stat-value">${solutionLength}</span>
+          </div>
+        </div>
+        <div class="moves-scroll">
+          <ol class="moves-list">
+            ${compressed.map(m => {
+              const suffix = m.count > 1 ? ` ×${m.count}` : '';
+              return `<li>Plate ${m.plate} - ${m.direction}${suffix}</li>`;
+            }).join('')}
+          </ol>
+        </div>
+        <div class="stats stats-footer">
+          <div class="stat-block">
+            <span class="stat-label">Visited states</span>
+            <span class="stat-value">${result.visited}</span>
+          </div>
+          <div class="stat-block">
+            <span class="stat-label">Queue size</span>
+            <span class="stat-value">${result.maxQueue}</span>
+          </div>
+          <div class="stat-block">
+            <span class="stat-label">Execution time</span>
+            <span class="stat-value">${result.elapsedMs.toFixed(2)} ms</span>
+          </div>
+          <div class="stat-block">
+            <span class="stat-label">Solution length</span>
+            <span class="stat-value">${solutionLength}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    /**
+     * Validates input and runs the solver.
+     */
+    function handleSolve() {
+      hideResults();
+
+      const countErr = validatePlateCount(plateCount);
+      if (countErr) {
+        showValidationError(countErr);
+        return;
+      }
+
+      const posErr = validatePositions(positions);
+      if (posErr) {
+        showValidationError(posErr);
+        return;
+      }
+
+      const connErr = validateConnections(connections, plateCount);
+      if (connErr) {
+        showValidationError(connErr);
+        return;
+      }
+
+      const state = getCurrentState();
+      const btn = document.getElementById('btn-solve');
+      btn.disabled = true;
+
+      // Defer so the UI can refresh on large state spaces
+      setTimeout(() => {
+        const result = solveBFS(state, connections);
+        renderSolution(result);
+        btn.disabled = false;
+      }, 10);
+    }
+
+    /**
+     * @param {string} msg
+     */
+    function showValidationError(msg) {
+      const el = document.getElementById('results');
+      el.className = 'visible error';
+      el.innerHTML = `
+        <div class="result-title error">Validation error</div>
+        <p class="validation-error">${msg}</p>
+      `;
+    }
+
+    // ─── Initialization ───────────────────────────────────────────────────────
+
+    document.getElementById('plate-count').addEventListener('change', (e) => {
+      plateCount = parseInt(e.target.value, 10);
+      createBoard();
+    });
+
+    document.getElementById('btn-solve').addEventListener('click', handleSolve);
+
+    createBoard();
+  </script>
+</body>
+</html>
