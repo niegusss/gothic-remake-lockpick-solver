@@ -7,6 +7,18 @@ breadth-first search.
 
 No build step, no dependencies — it's a single HTML file you open in a browser.
 
+**🔗 Live demo: https://niegusss.github.io/gothic-remake-lockpick-solver/**
+
+## Screenshots
+
+![Lock configuration UI](assets/screenshot-overview.png)
+
+*Recreate the lock — choose the plate count, set each plate's position, and fill in the connection matrix.*
+
+![Solver result](assets/screenshot-solution.png)
+
+*Press Solve to get the shortest sequence of moves, along with search diagnostics.*
+
 ## What it is
 
 The lock consists of several plates, each sitting at a numbered position. Turning
