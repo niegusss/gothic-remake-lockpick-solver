@@ -465,14 +465,17 @@
       font-size: 0.78rem;
     }
 
-    /* Solve button — brass plaque */
+    /* Action buttons */
     .actions {
       display: flex;
       justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
       margin-bottom: 1.5rem;
     }
 
-    .btn-solve {
+    .btn-solve,
+    .btn-reset {
       font-family: var(--font-display);
       font-variant: small-caps;
       font-weight: 700;
@@ -480,7 +483,10 @@
       letter-spacing: 0.2em;
       padding: 0.85rem 2.75rem;
       cursor: pointer;
-      border: none;
+      transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+    }
+
+    .btn-solve {
       color: #1a1208;
       background:
         linear-gradient(180deg, #e8c547 0%, #b8922a 35%, #8a6b18 100%);
@@ -490,8 +496,36 @@
         inset 0 -3px 6px rgba(0, 0, 0, 0.25),
         0 4px 16px rgba(0, 0, 0, 0.5),
         0 0 20px rgba(184, 146, 42, 0.15);
-      transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
       text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
+    }
+
+    .btn-reset {
+      color: var(--parchment);
+      background:
+        linear-gradient(180deg, #3a3530 0%, #2a231c 40%, #1a1510 100%);
+      border: 1px solid var(--iron-light);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        inset 0 -3px 6px rgba(0, 0, 0, 0.4),
+        0 4px 12px rgba(0, 0, 0, 0.45);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+    }
+
+    .btn-reset:hover:not(:disabled) {
+      filter: brightness(1.12);
+      transform: translateY(-2px);
+      border-color: var(--brass-dim);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        inset 0 -3px 6px rgba(0, 0, 0, 0.4),
+        0 6px 16px rgba(0, 0, 0, 0.5);
+    }
+
+    .btn-reset:active:not(:disabled) {
+      transform: translateY(1px);
+      box-shadow:
+        inset 0 2px 6px rgba(0, 0, 0, 0.45),
+        0 2px 8px rgba(0, 0, 0, 0.35);
     }
 
     .btn-solve:hover:not(:disabled) {
@@ -511,10 +545,22 @@
         0 2px 8px rgba(0, 0, 0, 0.4);
     }
 
-    .btn-solve:disabled {
+    .btn-solve:disabled,
+    .btn-reset:disabled {
       opacity: 0.45;
       cursor: not-allowed;
       filter: grayscale(0.4);
+      transform: none;
+    }
+
+    .plate-row.empty .plate-label::after {
+      content: " — unset";
+      font-weight: 400;
+      font-variant: normal;
+      letter-spacing: 0;
+      color: var(--ink-muted);
+      font-style: italic;
+      font-size: 0.75rem;
     }
 
     /* Results — scroll */
@@ -675,6 +721,7 @@
 
     <section id="section-positions">
       <h2>2. Plate positions</h2>
+      <p class="hint">Click a hole on each plate to set the pin position. Position 4 is the unlock target.</p>
       <div id="plates-container" class="plates-grid"></div>
     </section>
 
@@ -688,6 +735,7 @@
 
     <div class="actions">
       <button id="btn-solve" class="btn-solve" type="button">Solve</button>
+      <button id="btn-reset" class="btn-reset" type="button">Reset</button>
     </div>
 
     <div id="results"></div>
@@ -704,7 +752,7 @@
 
     /** @type {number} */
     let plateCount = 4;
-    /** @type {number[]} plate positions (index 0 = Plate 1) */
+    /** @type {(number|null)[]} plate positions; null = unset (index 0 = Plate 1) */
     let positions = [];
     /** @type {string[][]} connection matrix: 'none' | 'with' | 'against' */
     let connections = [];
@@ -734,6 +782,9 @@
       }
       for (let i = 0; i < pos.length; i++) {
         const p = pos[i];
+        if (p == null) {
+          return `Plate ${i + 1}: no pin position selected.`;
+        }
         if (!Number.isInteger(p) || p < MIN_POS || p > MAX_POS) {
           return `Plate ${i + 1}: position must be an integer between ${MIN_POS} and ${MAX_POS}.`;
         }
@@ -933,6 +984,15 @@
     // ─── UI: form building ────────────────────────────────────────────────────
 
     /**
+     * Creates an array of unset plate positions.
+     * @param {number} n
+     * @returns {(number|null)[]}
+     */
+    function createEmptyPositions(n) {
+      return Array.from({ length: n }, () => null);
+    }
+
+    /**
      * Initializes / rebuilds state and UI when plate count changes.
      */
     function createBoard() {
@@ -942,13 +1002,26 @@
         return;
       }
 
-      // Default starting positions (varied for easier testing)
-      positions = Array.from({ length: plateCount }, (_, i) => ((i % MAX_POS) + 1));
+      positions = createEmptyPositions(plateCount);
 
       createConnections();
       renderPlates();
       renderConnectionsMatrix();
       hideResults();
+    }
+
+    /**
+     * Full reset: default plate count, empty positions, default connections, clear results.
+     */
+    function resetAll() {
+      plateCount = MIN_PLATES;
+      document.getElementById('plate-count').value = String(MIN_PLATES);
+      positions = createEmptyPositions(plateCount);
+      createConnections();
+      renderPlates();
+      renderConnectionsMatrix();
+      hideResults();
+      document.getElementById('btn-solve').disabled = false;
     }
 
     /**
@@ -970,6 +1043,7 @@
       for (let i = 0; i < plateCount; i++) {
         const row = document.createElement('div');
         row.className = 'plate-row';
+        if (positions[i] == null) row.classList.add('empty');
 
         const label = document.createElement('span');
         label.className = 'plate-label';
@@ -988,7 +1062,7 @@
           hole.className = 'hole';
           hole.setAttribute('aria-label', `Plate ${i + 1}, position ${pos}`);
           if (pos === TARGET_POS) hole.classList.add('target');
-          if (pos === positions[i]) hole.classList.add('active');
+          if (positions[i] != null && pos === positions[i]) hole.classList.add('active');
 
           const num = document.createElement('span');
           num.className = 'hole-num';
@@ -1200,6 +1274,7 @@
     });
 
     document.getElementById('btn-solve').addEventListener('click', handleSolve);
+    document.getElementById('btn-reset').addEventListener('click', resetAll);
 
     createBoard();
   </script>
